@@ -13,8 +13,8 @@
 	
 	Grid.prototype = {
 		gridColor: ["#B5B5B5", "#FF845E", "#CCFF00"], // 格子颜色
-		gridRadius: 24, // 格子半径
-		gridGap: 6, //格子间隙
+		gridRadius: 24, // 格子半径 24 20 16 12
+		gridGap: 6, //格子间隙 6 5 4 3
 		// 绘制格子
 		drawGrid: function(context) {
 			context.beginPath();
@@ -84,10 +84,14 @@
 
 	var canvasWidth;
 	var canvasHeight;
+	var gridDefault;
 
 	/* 初始化游戏格子 */
 	var initGrids = function() {
 		var gridType, grid = new Grid(0, 0, 0, 0, 0, true), isWalkable;
+
+		grid.gridRadius = gridDefault.gridRadius;
+		grid.gridGap = gridDefault.gridGap;
 
 		for (var i = 0; i < game.gameGridRowCount; i++) {
 			grids[i] = [];
@@ -120,6 +124,9 @@
 									i, j,
 									gridType, isWalkable);
 				}
+				grid.gridRadius = gridDefault.gridRadius;
+				grid.gridGap = gridDefault.gridGap;
+
 				grid.drawGrid(context);
 				grids[i][j] = grid;
 			}
@@ -441,7 +448,24 @@
 
 		game.setGameSteps(game.gameSteps);
 
-		var gridDefault = new Grid(0, 0, 0, 0, 0, true);
+		gridDefault = new Grid(0, 0, 0, 0, 0, true);
+
+		// 根据当前屏幕宽度来动态适配canvas大小
+		var clientWidth = document.body.clientWidth;
+		if (clientWidth > 1023 && clientWidth < 1440) {
+			gridDefault.gridRadius = 24;
+			gridDefault.gridGap = 6;
+		} else if (clientWidth > 768 && clientWidth < 1024) {
+			gridDefault.gridRadius = 20;
+			gridDefault.gridGap = 5;
+		} else if (clientWidth > 480 && clientWidth < 769) {
+			gridDefault.gridRadius = 16;
+			gridDefault.gridGap = 4;
+		} else if (clientWidth < 481) {
+			gridDefault.gridRadius = 12;
+			gridDefault.gridGap = 3;
+		}
+
 		canvasWidth = gridDefault.gridRadius*2*game.gameGridRowCount + gridDefault.gridGap*(game.gameGridRowCount-1) + gridDefault.gridRadius*2 + gridDefault.gridGap/2; // 定义画布宽度
 		canvasHeight = gridDefault.gridRadius*2*game.gameGridColCount + gridDefault.gridGap*(game.gameGridColCount-1); // 定义画布高度
 		
