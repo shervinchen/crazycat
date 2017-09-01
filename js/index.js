@@ -61,7 +61,7 @@
 	Game.prototype = {
 		gameGridRowCount: 9, // 游戏格子行数
 		gameGridColCount: 9, // 游戏格子列数
-		gameBarrierCount: 9, // 游戏障碍个数
+		gameBarrierCount: 6, // 游戏障碍个数
 		// 设置游戏当前所用步数
 		setGameSteps: function(gameSteps) {
 			document.getElementById("steps").innerHTML = gameSteps;
