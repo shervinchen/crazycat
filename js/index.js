@@ -2,9 +2,7 @@
 	'use strict';
 
 	/* 定义格子 */
-	var Grid = function(x, y, gridRow, gridCol, type, isWalkable) {
-		this.gridX = x; // 格子X坐标
-		this.gridY = y; // 格子Y坐标
+	var Grid = function(gridRow, gridCol, type, isWalkable) {
 		this.gridRow = gridRow; // 格子所处行数
 		this.gridCol = gridCol; // 格子所处列数
 		this.gridType = type; // 格子类型 0默认 1障碍 2猫
@@ -16,20 +14,30 @@
 		gridRadius: 24, // 格子半径 24 20 16 12
 		gridGap: 6, //格子间隙 6 5 4 3
 		// 绘制格子
-		drawGrid: function(context) {
+		drawGrid: function(game, context) {
 			context.beginPath();
-		    context.arc(this.gridX, this.gridY, this.gridRadius, 0, Math.PI * 2, true);
+		    context.arc(this.getGridPosition(game).gridPositionX, this.getGridPosition(game).gridPositionY, 
+		    			this.gridRadius, 0, Math.PI * 2, true);
 		    context.fillStyle = this.gridColor[this.gridType];
 		    context.fill();
 		    context.closePath();
 		},
-
+		// 根据格子行列数获取位置坐标
+		getGridPosition: function (game) {
+			var gridPosition = {};
+			// 如果为偶数行 从左向右边开始画  否则从右向左
+			if (this.gridRow % 2 == 0) {
+				gridPosition.gridPositionX = this.gridRadius * 6 / 4 + this.gridCol * (this.gridRadius * 2 + this.gridGap);
+				gridPosition.gridPositionY = this.gridRadius + this.gridRow * (this.gridRadius * 2 + this.gridGap);
+			} else {
+				gridPosition.gridPositionX = game.gameCanvasWidth - (this.gridRadius * 6 / 4 
+												+ (game.gameGridColCount - 1 - this.gridCol) 
+												* (this.gridRadius * 2 + this.gridGap));
+				gridPosition.gridPositionY = this.gridRadius + this.gridRow * (this.gridRadius * 2 + this.gridGap);
+			}
+			return gridPosition;
+		}
 	};
-
-	// /* 定义格子集合 */
-	// var Grids = function() {
-
-	// };
 
 	/* 定义障碍 */
 	var Barrier = function(x, y) {
@@ -62,6 +70,8 @@
 		gameGridRowCount: 9, // 游戏格子行数
 		gameGridColCount: 9, // 游戏格子列数
 		gameBarrierCount: 6, // 游戏障碍个数
+		gameCanvasWidth: 0, // 游戏画布宽度
+		gameCanvasHeight: 0, // 游戏画布高度
 		// 设置游戏当前所用步数
 		setGameSteps: function(gameSteps) {
 			document.getElementById("steps").innerHTML = gameSteps;
@@ -69,6 +79,101 @@
 		// 设置游戏最短所用步数
 		setGameMinSteps: function(gameMinSteps) {
 			document.getElementById("minSteps").innerHTML = gameMinSteps;
+		},
+		// 设置游戏画布尺寸
+		setGameCanvasSize: function() {
+			// 获取格子数据
+			var gridData = this.getGameGridData();
+			// 定义画布宽度
+			this.gameCanvasWidth = gridData.gridRadius * 2 * this.gameGridRowCount + 
+									gridData.gridGap * (this.gameGridRowCount - 1) 
+									+ gridData.gridRadius * 2 + gridData.gridGap / 2;
+			// 定义画布高度						
+			this.gameCanvasHeight = gridData.gridRadius * 2 * this.gameGridColCount + 
+									gridData.gridGap * (this.gameGridColCount - 1);
+			// 设置canvas宽度
+			document.getElementById("canvas").setAttribute("width", this.gameCanvasWidth);
+			// 设置canvas高度
+			document.getElementById("canvas").setAttribute("height", this.gameCanvasHeight);
+		},
+		// 获取游戏格子半径及间隔
+		getGameGridData: function() {
+			var gridData = {};
+			// 根据当前屏幕宽度来动态适配格子半径及间隔
+			var clientWidth = document.body.clientWidth;
+			if (clientWidth > 1023 && clientWidth < 1440) {
+				gridData.gridRadius = 24;
+				gridData.gridGap = 6;
+			} else if (clientWidth > 768 && clientWidth < 1024) {
+				gridData.gridRadius = 20;
+				gridData.gridGap = 5;
+			} else if (clientWidth > 480 && clientWidth < 769) {
+				gridData.gridRadius = 16;
+				gridData.gridGap = 4;
+			} else if (clientWidth < 481) {
+				gridData.gridRadius = 12;
+				gridData.gridGap = 3;
+			}
+			return gridData;
+		},
+		// 初始化游戏格子
+		initGameGrids: function(girdData, gameBarriers, cat) {
+			var gridType, grid, isWalkable;
+			var gameGrids = [];
+			var game = this;
+			for (var i = 0; i < this.gameGridRowCount; i++) {
+				gameGrids[i] = [];
+				for (var j = 0; j < this.gameGridColCount; j++) {
+					gridType = 0;
+					isWalkable = true;
+					for (var k = 0; k < gameBarriers.length; k++) {
+						if (gameBarriers[k].barrierX == i && gameBarriers[k].barrierY == j) {
+							gridType = 1;
+							isWalkable = false;
+							break;
+						}
+					}
+					if (cat.catX == i && cat.catY == j) {
+						gridType = 2;
+						isWalkable = false;
+					}
+					grid = new Grid(i, j, gridType, isWalkable);
+					grid.gridRadius = girdData.gridRadius;
+					grid.gridGap = girdData.gridGap;
+					grid.drawGrid(game, context);
+					gameGrids[i][j] = grid;
+				}
+			}
+			return gameGrids;
+		},
+		// 初始化障碍
+		initGameBarriers: function() {
+			var x = [], y = [];
+			var gameBarriers = [];
+			for (var i = 0; i < this.gameGridRowCount; i++) {
+				x.push(i);
+			}
+			for (var j = 0; j < this.gameGridColCount; j++) {
+				y.push(j);
+			}
+			for (var k = 0; k < this.gameBarrierCount; k++) {
+				var randomX = Math.floor(Math.random() * this.gameGridRowCount);
+				var randomY = Math.floor(Math.random() * this.gameGridColCount);
+				while ((x[randomX] == -1 && y[randomY] == -1) || (randomX == 4 && randomY == 4)) {
+					randomX = Math.floor(Math.random() * this.gameGridRowCount);
+					randomY = Math.floor(Math.random() * this.gameGridColCount);
+				}
+				gameBarriers.push(new Barrier(randomX, randomY));
+				x[randomX] = -1;
+				y[randomY] = -1;
+			}
+			return gameBarriers;
+		},
+		// 初始化神经猫
+		initGameCat: function() {
+			var catPosX = (game.gameGridRowCount - 1) / 2;
+			var catPosY = (game.gameGridColCount - 1) / 2;
+			return (new Cat(catPosX, catPosY));
 		}
 	};
 
@@ -77,106 +182,25 @@
 	var context = canvas.getContext("2d"); // 获得context对象
 
 	var game; // 创建游戏对象
-	var grids = []; // 创建格子集合
-	var isVisited; // 记录节点是否搜索的二维数组
-	var barriers = []; // 创建障碍集合
+	var gameGrids = []; // 创建格子集合
 	var cat; // 创建神经猫对象
-
-	var canvasWidth;
-	var canvasHeight;
-	var gridDefault;
-
-	/* 初始化游戏格子 */
-	var initGrids = function() {
-		var gridType, grid = new Grid(0, 0, 0, 0, 0, true), isWalkable;
-
-		grid.gridRadius = gridDefault.gridRadius;
-		grid.gridGap = gridDefault.gridGap;
-
-		for (var i = 0; i < game.gameGridRowCount; i++) {
-			grids[i] = [];
-
-			for (var j = 0; j < game.gameGridColCount; j++) {
-				gridType = 0;
-				isWalkable = true;
-
-				for (var k = 0; k < barriers.length; k++) {
-					if (barriers[k].barrierX == i && barriers[k].barrierY == j) {
-						gridType = 1;
-						isWalkable = false;
-						break;
-					}
-				}
-
-				if (cat.catX == i && cat.catY == j) {
-					gridType = 2;
-					isWalkable = false;
-				}
-				// 如果为偶数行 从左向右边开始画  否则从右向左
-				if (i % 2 == 0) {
-					grid = new Grid(grid.gridRadius*6/4+j*(grid.gridRadius*2+grid.gridGap),
-									grid.gridRadius+i*(grid.gridRadius*2+grid.gridGap),
-									i, j,
-									gridType, isWalkable);
-				} else {
-					grid = new Grid(canvasWidth - (grid.gridRadius*6/4 +(game.gameGridColCount - 1 -j)*(grid.gridRadius*2+grid.gridGap)),
-									grid.gridRadius+i*(grid.gridRadius*2+grid.gridGap), 
-									i, j,
-									gridType, isWalkable);
-				}
-				grid.gridRadius = gridDefault.gridRadius;
-				grid.gridGap = gridDefault.gridGap;
-
-				grid.drawGrid(context);
-				grids[i][j] = grid;
-			}
-		}
-	};
-
-	/* 初始化障碍 */
-	var initBarrier = function() {
-		var x = [], y = [];
-
-		for (var i = 0; i < game.gameGridRowCount; i++) {
-			x.push(i);
-		}
-		for (var j = 0; j < game.gameGridColCount; j++) {
-			y.push(j);
-		}
-
-		for (var k = 0; k < game.gameBarrierCount; k++) {
-			var randomX = Math.floor(Math.random() * game.gameGridRowCount);
-			var randomY = Math.floor(Math.random() * game.gameGridColCount);
-			while ((x[randomX] == -1 && y[randomY] == -1) || (randomX == 4 && randomY == 4)) {
-				randomX = Math.floor(Math.random() * game.gameGridRowCount);
-				randomY = Math.floor(Math.random() * game.gameGridColCount);
-			}
-			barriers.push(new Barrier(randomX, randomY));
-			x[randomX] = -1;
-			y[randomY] = -1;
-		}
-	};
-
-	/* 初始化神经猫 */
-	var initCat = function() {
-		cat = new Cat(4, 4);
-	};
+	var isVisited; // 记录节点是否搜索的二维数组
+	var searchDepth; // 记录节点搜索深度
 
 	/* 判断点是否在路径内*/
 	var isInPath = function(x, y, grid){
+		var gridPosition = grid.getGridPosition(game);
 		context.beginPath();
-		context.arc(grid.gridX, grid.gridY, grid.gridRadius, 0, Math.PI * 2, true);
+		context.arc(gridPosition.gridPositionX, gridPosition.gridPositionY, 
+					grid.gridRadius, 0, Math.PI * 2, true);
 		context.closePath();
-
 		return context.isPointInPath(x, y);
 	};
 
 	/* 判断当前搜索节点是否为最外层格子  如果到达则表示当前搜索结束 */
 	var isSearchEnd = function(grid) {
-		if (grid.gridRow == 0 || 
-			grid.gridRow == game.gameGridRowCount - 1 ||
-			grid.gridCol == 0 || 
-			grid.gridCol == game.gameGridColCount - 1) {
+		if (grid.gridRow == 0 || grid.gridRow == game.gameGridRowCount - 1 ||
+			grid.gridCol == 0 || grid.gridCol == game.gameGridColCount - 1) {
 			return true;
 		}
 	};
@@ -185,96 +209,71 @@
 	var getNextGrids = function(catGrid) {
 		// 找到当前格子的所有可走的相邻格子
 		var nextGrids = [];
-
+		// 偶数行周围格子的坐标
+		var evenRowNextGridPos = [
+			[-1, -1], [-1, 0],
+			[0,  -1], [0,  1],
+			[1,  -1], [1,  0]
+		]; 
+		// 奇数行周围格子的坐标
+		var oddRowNextGridPos = [
+			[-1, 0], [-1, 1],
+			[0, -1], [0,  1],
+			[1,  0], [1,  1]
+		];
+		var nextGridPos = [];
 		// 当前猫的行数不同  周围格子的坐标不同
 		if (catGrid.gridRow % 2 == 0) {
-			if (grids[catGrid.gridRow - 1][catGrid.gridCol - 1].isWalkable) {
-				nextGrids.push(grids[catGrid.gridRow - 1][catGrid.gridCol - 1]);
-			}
-			if (grids[catGrid.gridRow - 1][catGrid.gridCol].isWalkable) {
-				nextGrids.push(grids[catGrid.gridRow - 1][catGrid.gridCol]);
-			}
-			if (grids[catGrid.gridRow][catGrid.gridCol - 1].isWalkable) {
-				nextGrids.push(grids[catGrid.gridRow][catGrid.gridCol - 1]);
-			}
-			if (grids[catGrid.gridRow][catGrid.gridCol + 1].isWalkable) {
-				nextGrids.push(grids[catGrid.gridRow][catGrid.gridCol + 1]);
-			}
-			if (grids[catGrid.gridRow + 1][catGrid.gridCol - 1].isWalkable) {
-				nextGrids.push(grids[catGrid.gridRow + 1][catGrid.gridCol - 1]);
-			}
-			if (grids[catGrid.gridRow + 1][catGrid.gridCol].isWalkable) {
-				nextGrids.push(grids[catGrid.gridRow + 1][catGrid.gridCol]);
-			}
+			nextGridPos = evenRowNextGridPos;
 		} else {
-			if (grids[catGrid.gridRow - 1][catGrid.gridCol].isWalkable) {
-				nextGrids.push(grids[catGrid.gridRow - 1][catGrid.gridCol]);
-			}
-			if (grids[catGrid.gridRow - 1][catGrid.gridCol + 1].isWalkable) {
-				nextGrids.push(grids[catGrid.gridRow - 1][catGrid.gridCol + 1]);
-			}
-			if (grids[catGrid.gridRow][catGrid.gridCol - 1].isWalkable) {
-				nextGrids.push(grids[catGrid.gridRow][catGrid.gridCol - 1]);
-			}
-			if (grids[catGrid.gridRow][catGrid.gridCol + 1].isWalkable) {
-				nextGrids.push(grids[catGrid.gridRow][catGrid.gridCol + 1]);
-			}
-			if (grids[catGrid.gridRow + 1][catGrid.gridCol].isWalkable) {
-				nextGrids.push(grids[catGrid.gridRow + 1][catGrid.gridCol]);
-			}
-			if (grids[catGrid.gridRow + 1][catGrid.gridCol + 1].isWalkable) {
-				nextGrids.push(grids[catGrid.gridRow + 1][catGrid.gridCol + 1]);
+			nextGridPos = oddRowNextGridPos;
+		}
+		for (var i = 0; i < nextGridPos.length; i++) {
+			var row = nextGridPos[i][0];
+			var col = nextGridPos[i][1];
+			if (gameGrids[catGrid.gridRow + row][catGrid.gridCol + col].isWalkable) {
+				nextGrids.push(gameGrids[catGrid.gridRow + row][catGrid.gridCol + col]);
 			}
 		}
-
 		return nextGrids;
 	};
 	
 	// 搜索路径算法第一种实现：深度优先搜索 Depth-First-Search
 	// 前置条件是visit数组全部设置成false
 	// 参数grid表示当前开始搜索的节点 depth表示当前到达的深度
-	var searchResult = {};
-
 	var depthFirstSearchPath = function(grid, depth) {
-		if (isSearchEnd(grid)) { //一旦搜索深度到达一个结束状态，就返回true
-			// console.log(depth);
-			searchResult.searchEnd = true;
-			searchResult.searchDepth = depth;
-
-	        return searchResult;
+		// 一旦搜索节点到达边界，就返回true，并记录搜索深度
+		if (isSearchEnd(grid)) {
+			searchDepth = depth;
+	        return true;
 	    }
-		
-		// 找到当前节点的所有可走的相邻节点
+		// 找到当前节点的所有相邻节点
 		var nextGrids = getNextGrids(grid);
-
-	    for (var k = 0; k < nextGrids.length; k++){ // 遍历n相邻的节点nextNode  
-	        if (!isVisited[nextGrids[k].gridRow][nextGrids[k].gridCol]){ // 未访问过的节点才能继续搜索   
-	            isVisited[nextGrids[k].gridRow][nextGrids[k].gridCol] = true; // 在下一步搜索中，nextNode不能再次出现  
-
-	            if (depthFirstSearchPath(nextGrids[k], depth + 1).searchEnd){ // 如果搜索出有解
-	                // 做些其他事情，例如记录结果深度等
-	                
-	                return searchResult;  // 找到解后 一层一层递归的告诉上层已经找到解
+		// 遍历相邻节点
+	    for (var k = 0; k < nextGrids.length; k++){
+	    	// 未访问过的节点才能继续搜索
+	        if (!isVisited[nextGrids[k].gridRow][nextGrids[k].gridCol]){
+	        	// 在下一步搜索中，nextNode不能再次出现
+	            isVisited[nextGrids[k].gridRow][nextGrids[k].gridCol] = true;  
+	            // 如果搜索出有解 一层一层通过递归的告诉上层已经找到解
+	            if (depthFirstSearchPath(nextGrids[k], depth + 1)){
+	                return true;
 	            }
-	  
 	            // 重新设置成false，因为它有可能出现在下一次搜索的别的路径中  
 	            isVisited[nextGrids[k].gridRow][nextGrids[k].gridCol] = false;  
 	        }
 	        // 到这里，发现本次搜索还没找到解，那就要从当前节点的下一个节点开始搜索。  
 	    }
-
-	    searchResult.searchEnd = false;
-	    return searchResult; //本次搜索无解
+	    // 本次搜索无解
+	    return false;
 	};
 
-	/* 对搜索结果的深度进行排序 采用贪心法的策略 选择当前路径最短的格子 */
-	var sortSearchDepth = function(sort) {
+	/* 对搜索结果的路径深度进行排序 选择最短的路径深度 */
+	var sortSearchDepth = function(gridsSearchResult) {
 		var arr = [];
-
-		for (var m = 0; m < sort.length; m++) {
-			arr.push(sort[m].objDepth);
+		for (var m = 0; m < gridsSearchResult.length; m++) {
+			arr.push(gridsSearchResult[m].gridDepth);
 		}
-
 		for (var i = 0; i < arr.length - 1; i++) {
 	        for (var j = 0; j < arr.length - 1 - i; j++) {
 	            if (arr[j] > arr[j + 1]) {
@@ -284,16 +283,11 @@
 	            }
 	        }
 	    }
-	    // console.log(arr);
-
 	    return arr[0];
 	};
 
-	/* 移动猫的位置 */
-	var moveCat = function() {
-		// 根据猫的位置找到猫当前所处的格子
-		var catGrid = grids[cat.catX][cat.catY];
-		// 初始化记录节点是否搜索的二维数组
+	/* 重置记录节点访问状态的数组 */
+	var resetSearch = function() {
 		isVisited = [];
 		for (var i = 0; i < game.gameGridRowCount; i++) {
 			isVisited[i] = [];
@@ -301,132 +295,118 @@
 				isVisited[i][j] = false;
 			}
 		}
-		
-		// 找到当前格子的所有可走的相邻格子
-		var nextGrids = getNextGrids(catGrid);
+	};
 
-		var sort = [];
-		var searchObj;
+	/* 更新格子状态 */
+	var updateGameGrid = function(x, y, type, isWalkable) {
+		gameGrids[x][y].gridType = type;
+		gameGrids[x][y].drawGrid(game, context);
+		gameGrids[x][y].isWalkable = isWalkable;
+	};
 
-		searchResult.searchEnd = false;
-		searchResult.searchDepth = 0;
-		
-		var result;
-		// 搜索每一个相邻格子对应的路径
+	/* 判断游戏是否失败 */
+	var isGameLose = function() {
+		if (cat.catX == 0 || cat.catX == game.gameGridRowCount - 1 || 
+			cat.catY == 0 || cat.catY == game.gameGridColCount - 1) {
+			alert("You lose ! Please try again");
+			document.location.reload();
+		}
+	}
+
+	/* 搜索当前节点的相邻节点，并找到其对应的路径 */
+	var getSearchResults = function(nextGrids) {
+		var results = [];
 		for (var k = 0; k < nextGrids.length; k++) {
-			result = depthFirstSearchPath(nextGrids[k], 0);
-			if (result.searchEnd) {// 如果有路能移动到边缘
-				searchObj = {
-					objDepth: result.searchDepth,
-					obj: nextGrids[k]
-				};
-				sort.push(searchObj);
-
-				searchResult.searchEnd = false;
-				searchResult.searchDepth = 0;
+			// dfs只能找到一个节点的一个解，并且不一定是最优解
+			if (depthFirstSearchPath(nextGrids[k], 0)) {
+				results.push({
+					gridDepth: searchDepth,
+					grid: nextGrids[k]
+				});
 			}
 		}
+		return results;
+	};
 
-		var sortResult = sortSearchDepth(sort);
-
-		for (var m = 0; m < sort.length; m++) {
-			if (sort[m].objDepth == sortResult) {
-				// 让猫移动到下一个格子 并更新格子集合数据
-				grids[cat.catX][cat.catY].gridType = 0;
-				grids[cat.catX][cat.catY].drawGrid(context);
-				grids[cat.catX][cat.catY].isWalkable = true;
-
-				cat.catX = sort[m].obj.gridRow;
-				cat.catY = sort[m].obj.gridCol;
-
-				grids[cat.catX][cat.catY].gridType = 2;
-				grids[cat.catX][cat.catY].drawGrid(context);
-				grids[cat.catX][cat.catY].isWalkable = false;
-				// 如果猫已经到达边缘 游戏结束 lose
-				if (cat.catX == 0 || 
-					cat.catX == game.gameGridRowCount - 1 || 
-					cat.catY == 0 || 
-					cat.catY == game.gameGridColCount - 1) {
-					alert("You lose ! Please try again");
-				   	document.location.reload();
+	/* 判断游戏是否胜利 */
+	var isGameWin = function(gridsSearchResult) {
+		if (gridsSearchResult.length == 0) {
+			var gameData = JSON.parse(window.localStorage.getItem("gameData"));
+			// 如果缓存里有值
+			if (gameData != null && gameData != undefined) {
+				if (gameData.gameMinSteps > game.gameSteps) {
+					gameData.gameMinSteps = game.gameSteps;
+					window.localStorage.setItem("gameData", JSON.stringify(gameData));
 				}
+			} else {
+				var data = {};
+				data.gameMinSteps = game.gameSteps;
+				window.localStorage.setItem("gameData", JSON.stringify(data));
+			}
+			alert("You win！Steps：" + game.gameSteps);
+			document.location.reload();
+		}
+	};
+
+	/* 清除格子显示痕迹 */
+	var clearGridView = function(girdRow, gridCol, gridType, isWalkable) {
+		// 获得猫所处的格子
+		var grid = new Grid(girdRow, gridCol, gridType, isWalkable);
+		grid.gridRadius = game.getGameGridData().gridRadius;
+		grid.gridGap = game.getGameGridData().gridGap;
+		// 清除痕迹
+		context.clearRect(grid.getGridPosition(game).gridPositionX - grid.gridRadius, 
+		grid.getGridPosition(game).gridPositionY - grid.gridRadius,
+		grid.gridRadius * 2, grid.gridRadius * 2);
+	};
+
+	/* 移动猫的位置 */
+	var moveCat = function() {
+		// 找到当前节点周围所有可走的相邻节点
+		var nextGrids = getNextGrids(gameGrids[cat.catX][cat.catY]);
+		// 获得相邻节点的搜索结果
+		var gridsSearchResult = getSearchResults(nextGrids);
+		// 让猫移动到周围路径最短的那个格子
+		for (var m = 0; m < gridsSearchResult.length; m++) {
+			if (gridsSearchResult[m].gridDepth == sortSearchDepth(gridsSearchResult)) {
+				// 清除猫的痕迹
+				clearGridView(cat.catX, cat.catY, 2, false);
+				// 格子重置为默认状态
+				updateGameGrid(cat.catX, cat.catY, 0, true);
+				// 让猫移动到下一个格子
+				cat.catX = gridsSearchResult[m].grid.gridRow;
+				cat.catY = gridsSearchResult[m].grid.gridCol;
+				// 让格子状态变为猫
+				updateGameGrid(cat.catX, cat.catY, 2, false);
+				// 判断是否lose
+				isGameLose();
 				break;
 			}
 		}
-
-		// 猫已经被围住
-		if (sort.length == 0) {
-			var flag = 0;
-			
-			var randomMoveGrids = [];
-			for (var n = 0; n < nextGrids.length; n++) {
-				if (nextGrids[n].isWalkable) {
-					randomMoveGrids.push(nextGrids[n]);
-					flag = 1;
-				}
-			}
-			
-			if (flag == 0) { // 如果猫周围没有可移动的点了 游戏结束 win
-				var gameData = window.localStorage.getItem("gameData");
-				gameData = JSON.parse(gameData);
-
-				if (gameData != null && gameData != undefined) { // 如果缓存里有值
-					if (gameData.gameMinSteps > game.gameSteps) {
-						gameData.gameMinSteps = game.gameSteps;
-						window.localStorage.setItem("gameData", JSON.stringify(gameData));
-					}
-				} else {
-					var data = {};
-					data.gameMinSteps = game.gameSteps;
-					window.localStorage.setItem("gameData", JSON.stringify(data));
-				}
-				
-
-				alert("You win！Steps：" + game.gameSteps);
-				document.location.reload();
-			} else { // 如果还有可移动的点 就在被围住的范围内随机走
-				var index =  Math.floor(Math.random() * randomMoveGrids.length);
-
-				// 让猫移动到下一个格子 并更新格子集合数据
-				grids[cat.catX][cat.catY].gridType = 0;
-				grids[cat.catX][cat.catY].drawGrid(context);
-				grids[cat.catX][cat.catY].isWalkable = true;
-
-				cat.catX = randomMoveGrids[index].gridRow;
-				cat.catY = randomMoveGrids[index].gridCol;
-
-				grids[cat.catX][cat.catY].gridType = 2;
-				grids[cat.catX][cat.catY].drawGrid(context);
-				grids[cat.catX][cat.catY].isWalkable = false;
-			}
-		}
-		
+		// 判断是否win
+		isGameWin(gridsSearchResult);
 	};
 
 	/* canvas点击事件 */
 	canvas.addEventListener("click", function (e) {
-		var flag = 0;
-
 		for (var i = 0; i < game.gameGridRowCount; i++) {
 			for (var j = 0; j < game.gameGridColCount; j++) {
-				if (isInPath(e.offsetX, e.offsetY, grids[i][j])) {
-					if (grids[i][j].gridType == 0) {
-						grids[i][j].gridType = 1;
-						grids[i][j].drawGrid(context);
-						grids[i][j].isWalkable = false;
+				if (isInPath(e.offsetX, e.offsetY, gameGrids[i][j])) {
+					if (gameGrids[i][j].gridType == 0) {
+						// 清除默认格子痕迹
+						clearGridView(i, j, 1, true);
+						// 让格子变为障碍
+						updateGameGrid(i, j, 1, false);
+						// 重置节点搜索的访问状态
+						resetSearch();
+						// 移动猫
 						moveCat();
-
+						// 增加游戏所用步数
 						game.gameSteps++;
 						game.setGameSteps(game.gameSteps);
 					}
-
-					flag = 1;
-					break;
+					return;
 				}
-			}
-
-			if (flag == 1) {
-				break;
 			}
 		}
 	}, false);
@@ -434,47 +414,24 @@
 	// 游戏初始化
 	// 简单 中等 困难  默认生成障碍数从多到少
 	var initGame = function() {
-
+		// 游戏对象初始化
 		game = new Game(true, 0, 0);
-
-		var gameData = window.localStorage.getItem("gameData");
-		gameData = JSON.parse(gameData);
-
-		if (gameData != null && gameData != undefined) { // 如果缓存里有值
+		// 获取缓存中的游戏记录数据
+		var gameData = JSON.parse(window.localStorage.getItem("gameData"));
+		// 判断缓存里是否有值
+		if (gameData != null && gameData != undefined) {
 			game.setGameMinSteps(gameData.gameMinSteps);
 		} else {
 			game.setGameMinSteps(game.gameMinSteps);
 		}
-
+		// 初始化当前游戏步数
 		game.setGameSteps(game.gameSteps);
-
-		gridDefault = new Grid(0, 0, 0, 0, 0, true);
-
-		// 根据当前屏幕宽度来动态适配canvas大小
-		var clientWidth = document.body.clientWidth;
-		if (clientWidth > 1023 && clientWidth < 1440) {
-			gridDefault.gridRadius = 24;
-			gridDefault.gridGap = 6;
-		} else if (clientWidth > 768 && clientWidth < 1024) {
-			gridDefault.gridRadius = 20;
-			gridDefault.gridGap = 5;
-		} else if (clientWidth > 480 && clientWidth < 769) {
-			gridDefault.gridRadius = 16;
-			gridDefault.gridGap = 4;
-		} else if (clientWidth < 481) {
-			gridDefault.gridRadius = 12;
-			gridDefault.gridGap = 3;
-		}
-
-		canvasWidth = gridDefault.gridRadius*2*game.gameGridRowCount + gridDefault.gridGap*(game.gameGridRowCount-1) + gridDefault.gridRadius*2 + gridDefault.gridGap/2; // 定义画布宽度
-		canvasHeight = gridDefault.gridRadius*2*game.gameGridColCount + gridDefault.gridGap*(game.gameGridColCount-1); // 定义画布高度
-		
-		canvas.setAttribute("width", canvasWidth); // 设置canvas宽度
-		canvas.setAttribute("height", canvasHeight); // 设置canvas高度
-
-		initCat();
-		initBarrier();
-		initGrids();
+		// 设置当前游戏画布大小
+		game.setGameCanvasSize();
+		// 初始化神经猫
+		cat = game.initGameCat();
+		// 初始化格子
+		gameGrids = game.initGameGrids(game.getGameGridData(), game.initGameBarriers(), cat);
 	};
 
 	initGame();
