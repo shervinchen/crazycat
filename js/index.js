@@ -268,6 +268,47 @@
 	    return false;
 	};
 
+	// 搜索路径算法第二种实现：广度优先搜索 Breadth-First-Search
+	var breadthFirstSearchPath = function(grid) {
+		if (isSearchEnd(grid)) {
+			// 记录路径，这条路径即为最短路径
+			searchDepth = -1;
+	        return true;
+	    }
+		// 待搜索的节点队列
+		var gridQueue = [];
+		// 将起点放进队列
+		gridQueue.push(grid);
+		// 设置起点的访问状态为已访问
+		isVisited[grid.gridRow][grid.gridCol] = true;
+		// 初始化搜索深度
+		searchDepth = 0;
+		// 队列不为空就继续搜索
+		while (gridQueue.length != 0) {
+			// 取出队列的头并删除队列的头
+			var gridQueueFront = gridQueue.shift();
+			// 找到当前节点的所有相邻节点
+			var nextGrids = getNextGrids(gridQueueFront);
+			// 遍历相邻节点
+		    for (var k = 0; k < nextGrids.length; k++) {
+		    	if (isSearchEnd(nextGrids[k])) {
+					// 记录路径，这条路径即为最短路径
+			        return true;
+			    }
+		    	// 未访问过的节点才能继续搜索
+		        if (!isVisited[nextGrids[k].gridRow][nextGrids[k].gridCol]) {
+		            // 将节点加入队列
+		            gridQueue.push(nextGrids[k]);
+					// 在下一步搜索中，nextNode不能再次出现
+		            isVisited[nextGrids[k].gridRow][nextGrids[k].gridCol] = true;
+		        }
+		    }
+		    searchDepth++;
+		}
+		// 无解
+		return false;
+	}
+
 	/* 对搜索结果的路径深度进行排序 选择最短的路径深度 */
 	var sortSearchDepth = function(gridsSearchResult) {
 		var arr = [];
@@ -317,12 +358,21 @@
 	var getSearchResults = function(nextGrids) {
 		var results = [];
 		for (var k = 0; k < nextGrids.length; k++) {
-			// dfs只能找到一个节点的一个解，并且不一定是最优解
-			if (depthFirstSearchPath(nextGrids[k], 0)) {
+			// // dfs只能找到一个节点的一个解，并且不一定是最优解
+			// if (depthFirstSearchPath(nextGrids[k], 0)) {
+			// 	results.push({
+			// 		gridDepth: searchDepth,
+			// 		grid: nextGrids[k]
+			// 	});
+			// }
+
+			// bfs 能找到每一步的最短路径
+			if (breadthFirstSearchPath(nextGrids[k])) {
 				results.push({
 					gridDepth: searchDepth,
 					grid: nextGrids[k]
 				});
+				resetSearch();
 			}
 		}
 		return results;
@@ -366,6 +416,7 @@
 		var nextGrids = getNextGrids(gameGrids[cat.catX][cat.catY]);
 		// 获得相邻节点的搜索结果
 		var gridsSearchResult = getSearchResults(nextGrids);
+		console.log(gridsSearchResult);
 		// 让猫移动到周围路径最短的那个格子
 		for (var m = 0; m < gridsSearchResult.length; m++) {
 			if (gridsSearchResult[m].gridDepth == sortSearchDepth(gridsSearchResult)) {
