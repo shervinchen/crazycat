@@ -457,7 +457,7 @@
 		// 格子重置为默认状态
 		updateGameGrid(cat.catX, cat.catY, 0, true);
 		// 让猫移动到下一个格子
-		if (gridsSearchResult.length != 0) {
+		if (gridsSearchResult.length != 0) { 
 			cat.catX = randomMoveGrid.gridRow;
 			cat.catY = randomMoveGrid.gridCol;
 		}
