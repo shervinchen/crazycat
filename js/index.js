@@ -457,8 +457,10 @@
 		// 格子重置为默认状态
 		updateGameGrid(cat.catX, cat.catY, 0, true);
 		// 让猫移动到下一个格子
-		cat.catX = randomMoveGrid.gridRow;
-		cat.catY = randomMoveGrid.gridCol;
+		if (gridsSearchResult.length != 0) {
+			cat.catX = randomMoveGrid.gridRow;
+			cat.catY = randomMoveGrid.gridCol;
+		}
 		// 让格子状态变为猫
 		updateGameGrid(cat.catX, cat.catY, 2, false);
 		// 判断是否lose
