@@ -206,7 +206,7 @@
 	};
 
 	/* 寻找当前猫所处位置周围可以移动的格子 */
-	var getNextGrids = function(catGrid) {
+	var getNextGrids = function(depth, catGrid) {
 		// 找到当前格子的所有可走的相邻格子
 		var nextGrids = [];
 		// 偶数行周围格子的坐标
@@ -232,6 +232,9 @@
 			var row = nextGridPos[i][0];
 			var col = nextGridPos[i][1];
 			if (gameGrids[catGrid.gridRow + row][catGrid.gridCol + col].isWalkable) {
+				if (!isVisited[catGrid.gridRow + row][catGrid.gridCol + col]) {
+					gameGrids[catGrid.gridRow + row][catGrid.gridCol + col].searchDepth = depth + 1;
+				}
 				nextGrids.push(gameGrids[catGrid.gridRow + row][catGrid.gridCol + col]);
 			}
 		}
@@ -272,7 +275,7 @@
 	var breadthFirstSearchPath = function(grid) {
 		if (isSearchEnd(grid)) {
 			// 记录路径，这条路径即为最短路径
-			searchDepth = -1;
+			searchDepth = grid.searchDepth;
 	        return true;
 	    }
 		// 待搜索的节点队列
@@ -281,18 +284,17 @@
 		gridQueue.push(grid);
 		// 设置起点的访问状态为已访问
 		isVisited[grid.gridRow][grid.gridCol] = true;
-		// 初始化搜索深度
-		searchDepth = 0;
 		// 队列不为空就继续搜索
 		while (gridQueue.length != 0) {
 			// 取出队列的头并删除队列的头
 			var gridQueueFront = gridQueue.shift();
 			// 找到当前节点的所有相邻节点
-			var nextGrids = getNextGrids(gridQueueFront);
+			var nextGrids = getNextGrids(gridQueueFront.searchDepth, gridQueueFront);
 			// 遍历相邻节点
 		    for (var k = 0; k < nextGrids.length; k++) {
 		    	if (isSearchEnd(nextGrids[k])) {
 					// 记录路径，这条路径即为最短路径
+					searchDepth = nextGrids[k].searchDepth;
 			        return true;
 			    }
 		    	// 未访问过的节点才能继续搜索
@@ -303,11 +305,24 @@
 		            isVisited[nextGrids[k].gridRow][nextGrids[k].gridCol] = true;
 		        }
 		    }
-		    searchDepth++;
 		}
 		// 无解
 		return false;
-	}
+	};
+
+	/* 计算每个最短路径格子对应方向存在的障碍数量，选择障碍数最少的方向 */
+	var sortLeftUpBarriersCount = function(catGrid) {
+		// 左上
+		var barriesCount = 0;
+		for (var i = 0; i < catGrid.gridCol; i++) {
+			for (var j = 0; j < catGrid.gridRow; j++) {
+				if (gameGrids[i][j].gridType == 1) {
+					barriesCount++;
+				}
+			}
+		}
+		return barriesCount;
+	};
 
 	/* 对搜索结果的路径深度进行排序 选择最短的路径深度 */
 	var sortSearchDepth = function(gridsSearchResult) {
@@ -328,12 +343,23 @@
 	};
 
 	/* 重置记录节点访问状态的数组 */
-	var resetSearch = function() {
+	var resetGridVisited = function() {
 		isVisited = [];
 		for (var i = 0; i < game.gameGridRowCount; i++) {
 			isVisited[i] = [];
 			for (var j = 0; j < game.gameGridColCount; j++) {
 				isVisited[i][j] = false;
+			}
+		}
+	};
+
+	/* 重置节点搜索深度 */
+	var resetGridDepth = function() {
+		for (var i = 0; i < game.gameGridRowCount; i++) {
+			for (var j = 0; j < game.gameGridColCount; j++) {
+				if (gameGrids[i][j].isWalkable) {
+					gameGrids[i][j].searchDepth = 1;
+				}
 			}
 		}
 	};
@@ -352,7 +378,7 @@
 			alert("You lose ! Please try again");
 			document.location.reload();
 		}
-	}
+	};
 
 	/* 搜索当前节点的相邻节点，并找到其对应的路径 */
 	var getSearchResults = function(nextGrids) {
@@ -372,7 +398,8 @@
 					gridDepth: searchDepth,
 					grid: nextGrids[k]
 				});
-				resetSearch();
+				resetGridVisited();
+				resetGridDepth();
 			}
 		}
 		return results;
@@ -413,27 +440,30 @@
 	/* 移动猫的位置 */
 	var moveCat = function() {
 		// 找到当前节点周围所有可走的相邻节点
-		var nextGrids = getNextGrids(gameGrids[cat.catX][cat.catY]);
+		var nextGrids = getNextGrids(searchDepth, gameGrids[cat.catX][cat.catY]);
 		// 获得相邻节点的搜索结果
 		var gridsSearchResult = getSearchResults(nextGrids);
 		console.log(gridsSearchResult);
 		// 让猫移动到周围路径最短的那个格子
+		var moveGrids = [];
 		for (var m = 0; m < gridsSearchResult.length; m++) {
 			if (gridsSearchResult[m].gridDepth == sortSearchDepth(gridsSearchResult)) {
-				// 清除猫的痕迹
-				clearGridView(cat.catX, cat.catY, 2, false);
-				// 格子重置为默认状态
-				updateGameGrid(cat.catX, cat.catY, 0, true);
-				// 让猫移动到下一个格子
-				cat.catX = gridsSearchResult[m].grid.gridRow;
-				cat.catY = gridsSearchResult[m].grid.gridCol;
-				// 让格子状态变为猫
-				updateGameGrid(cat.catX, cat.catY, 2, false);
-				// 判断是否lose
-				isGameLose();
-				break;
+				moveGrids.push(gridsSearchResult[m].grid);
 			}
 		}
+		var randomMoveGrid = moveGrids[Math.floor(Math.random() * moveGrids.length)];
+		// 清除猫的痕迹
+		clearGridView(cat.catX, cat.catY, 2, false);
+		// 格子重置为默认状态
+		updateGameGrid(cat.catX, cat.catY, 0, true);
+		// 让猫移动到下一个格子
+		cat.catX = randomMoveGrid.gridRow;
+		cat.catY = randomMoveGrid.gridCol;
+		// 让格子状态变为猫
+		updateGameGrid(cat.catX, cat.catY, 2, false);
+		// 判断是否lose
+		isGameLose();
+		// break;
 		// 判断是否win
 		isGameWin(gridsSearchResult);
 	};
@@ -449,7 +479,10 @@
 						// 让格子变为障碍
 						updateGameGrid(i, j, 1, false);
 						// 重置节点搜索的访问状态
-						resetSearch();
+						resetGridVisited();
+						resetGridDepth();
+						// 重置当前节点的搜索深度
+						searchDepth = 0;
 						// 移动猫
 						moveCat();
 						// 增加游戏所用步数
