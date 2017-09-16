@@ -406,23 +406,21 @@
 	};
 
 	/* 判断游戏是否胜利 */
-	var isGameWin = function(gridsSearchResult) {
-		if (gridsSearchResult.length == 0) {
-			var gameData = JSON.parse(window.localStorage.getItem("gameData"));
-			// 如果缓存里有值
-			if (gameData != null && gameData != undefined) {
-				if (gameData.gameMinSteps > game.gameSteps) {
-					gameData.gameMinSteps = game.gameSteps;
-					window.localStorage.setItem("gameData", JSON.stringify(gameData));
-				}
-			} else {
-				var data = {};
-				data.gameMinSteps = game.gameSteps;
-				window.localStorage.setItem("gameData", JSON.stringify(data));
+	var isGameWin = function() {
+		var gameData = JSON.parse(window.localStorage.getItem("gameData"));
+		// 如果缓存里有值
+		if (gameData != null && gameData != undefined) {
+			if (gameData.gameMinSteps > game.gameSteps) {
+				gameData.gameMinSteps = game.gameSteps;
+				window.localStorage.setItem("gameData", JSON.stringify(gameData));
 			}
-			alert("You win！Steps：" + game.gameSteps);
-			document.location.reload();
+		} else {
+			var data = {};
+			data.gameMinSteps = game.gameSteps;
+			window.localStorage.setItem("gameData", JSON.stringify(data));
 		}
+		alert("You win！Steps：" + game.gameSteps);
+		document.location.reload();
 	};
 
 	/* 清除格子显示痕迹 */
@@ -445,29 +443,29 @@
 		var gridsSearchResult = getSearchResults(nextGrids);
 		console.log(gridsSearchResult);
 		// 让猫移动到周围路径最短的那个格子
-		var moveGrids = [];
-		for (var m = 0; m < gridsSearchResult.length; m++) {
-			if (gridsSearchResult[m].gridDepth == sortSearchDepth(gridsSearchResult)) {
-				moveGrids.push(gridsSearchResult[m].grid);
+		if (gridsSearchResult.length != 0) {
+			var moveGrids = [];
+			for (var m = 0; m < gridsSearchResult.length; m++) {
+				if (gridsSearchResult[m].gridDepth == sortSearchDepth(gridsSearchResult)) {
+					moveGrids.push(gridsSearchResult[m].grid);
+				}
 			}
-		}
-		var randomMoveGrid = moveGrids[Math.floor(Math.random() * moveGrids.length)];
-		// 清除猫的痕迹
-		clearGridView(cat.catX, cat.catY, 2, false);
-		// 格子重置为默认状态
-		updateGameGrid(cat.catX, cat.catY, 0, true);
-		// 让猫移动到下一个格子
-		if (gridsSearchResult.length != 0) { 
+			var randomMoveGrid = moveGrids[Math.floor(Math.random() * moveGrids.length)];
+			// 清除猫的痕迹
+			clearGridView(cat.catX, cat.catY, 2, false);
+			// 格子重置为默认状态
+			updateGameGrid(cat.catX, cat.catY, 0, true);
+			// 让猫移动到下一个格子
 			cat.catX = randomMoveGrid.gridRow;
 			cat.catY = randomMoveGrid.gridCol;
+			// 让格子状态变为猫
+			updateGameGrid(cat.catX, cat.catY, 2, false);
+			// 判断是否lose
+			isGameLose();
+		} else {
+			// 判断是否win
+			isGameWin();
 		}
-		// 让格子状态变为猫
-		updateGameGrid(cat.catX, cat.catY, 2, false);
-		// 判断是否lose
-		isGameLose();
-		// break;
-		// 判断是否win
-		isGameWin(gridsSearchResult);
 	};
 
 	/* canvas点击事件 */
