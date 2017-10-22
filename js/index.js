@@ -113,6 +113,9 @@
 			} else if (clientWidth < 481) {
 				gridData.gridRadius = 12;
 				gridData.gridGap = 3;
+			} else {
+				gridData.gridRadius = 24;
+				gridData.gridGap = 6;
 			}
 			return gridData;
 		},
